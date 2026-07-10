@@ -40,33 +40,28 @@ class Settings:
     LOGS_DIR: Path = Path('logs')
     
     # Database Configuration
-    # Your Neon PostgreSQL connection string
-    DATABASE_URL: str = "postgresql://neondb_owner:npg_faNmnb8q5Wds@ep-twilight-brook-adbmb6hq-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require"
+    DATABASE_URL: str = os.getenv('DATABASE_URL', "postgresql://neondb_owner:npg_faNmnb8q5Wds@ep-twilight-brook-adbmb6hq-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require")
     
     DATABASE_POOL_SIZE: int = 10
     DATABASE_MAX_OVERFLOW: int = 20
     
     # API Keys
-    NEWS_API_KEY: str = "06a2e8449d244722a2e432039dc0c46b"
-    FRED_API_KEY: str = "d5dc8c57d9922d0f2b3d04c64b2f7520"
+    NEWS_API_KEY: str = os.getenv('NEWS_API_KEY', "06a2e8449d244722a2e432039dc0c46b")
+    FRED_API_KEY: str = os.getenv('FRED_API_KEY', "d5dc8c57d9922d0f2b3d04c64b2f7520")
     
     # Scheduler Settings
-    SCHEDULER_ENABLED: bool = True
-    MARKET_CLOSE_HOUR: int = 17  # 5 PM EST
-    MARKET_CLOSE_MINUTE: int = 0
-    REALTIME_UPDATE_INTERVAL: int = 5  # minutes
-    MACRO_UPDATE_HOUR: int = 8  # 8 AM EST
+    SCHEDULER_ENABLED: bool = False  # DISABLED to prevent openbb errors
     
     # AI Settings
     AI_ENABLED: bool = True
     AI_MODEL_PATH: Path = Path('models')
-    AI_UPDATE_INTERVAL: int = 3600  # 1 hour in seconds
+    AI_UPDATE_INTERVAL: int = 3600
     
-    # Provider settings
-    DEFAULT_PROVIDER: str = 'openbb'
+    # Provider settings - Use Yahoo only (no openbb)
+    DEFAULT_PROVIDER: str = 'yahoo'
     
-    # Download batch size (number of years per batch to avoid memory issues)
-    DOWNLOAD_BATCH_SIZE: int = 2  # years per batch
+    # Download batch size
+    DOWNLOAD_BATCH_SIZE: int = 2
     
     def __post_init__(self):
         """Create directories if they don't exist."""
