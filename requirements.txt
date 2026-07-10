@@ -1,40 +1,40 @@
 # Core
-python-dotenv==1.0.0
-pydantic==2.5.0
-pydantic-settings==2.1.0
+python-dotenv
+pydantic
+pydantic-settings
 
 # Database
-sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
-asyncpg==0.29.0
+sqlalchemy
+psycopg2-binary
+asyncpg
 
 # Data Processing
-pandas==2.1.3
-numpy==1.26.2
-scipy==1.11.4
+pandas
+numpy
+scipy
 
 # API
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-websockets==12.0
+fastapi
+uvicorn[standard]
+websockets
 
 # Providers
-yfinance==0.2.33
-openbb==4.1.4
-requests==2.31.0
+yfinance
+openbb
+requests
 
 # ML/AI
-xgboost==2.0.2
-scikit-learn==1.3.2
-joblib==1.3.2
+xgboost
+scikit-learn
+joblib
 
 # Analysis
-matplotlib==3.8.2
-seaborn==0.13.0
+matplotlib
+seaborn
 
 # Scheduling
-apscheduler==3.10.4
-pytz==2023.3.post1
+apscheduler
+pytz
 
 # Other
-python-multipart==0.0.6
+python-multipart
