@@ -12,6 +12,7 @@ from backend.providers.base_provider import BaseProvider
 
 logger = logging.getLogger(__name__)
 
+
 class YahooProvider(BaseProvider):
     """
     Yahoo Finance data provider implementation.
@@ -21,11 +22,10 @@ class YahooProvider(BaseProvider):
         """Initialize Yahoo Provider."""
         self.name = "yahoo"
         self.supported_assets = ['EURUSD', 'GBPUSD', 'XAUUSD', 'XAGUSD']
-        # Note: XAUEUR and XAUGBP are not available on Yahoo
         self.timeframe_map = {
             'weekly': '1wk',
             'daily': '1d',
-            '4h': '1h',  # Will be aggregated
+            '4h': '1h',
             '1h': '1h',
             '30m': '30m',
         }
@@ -33,24 +33,15 @@ class YahooProvider(BaseProvider):
     
     def download_asset(self, symbol: str, timeframe: str, 
                       start_date: datetime, end_date: datetime) -> Optional[pd.DataFrame]:
-        """
-        Download asset data from Yahoo Finance.
-        """
+        """Download asset data from Yahoo Finance."""
         try:
-            # Check if asset is supported
             if symbol not in self.supported_assets:
                 logger.warning(f"Asset {symbol} not supported by Yahoo")
                 return None
             
-            # Convert symbol to Yahoo format
             yahoo_symbol = self._convert_symbol(symbol)
-            
-            # Convert timeframe to Yahoo format
             yahoo_interval = self.timeframe_map.get(timeframe, '1d')
             
-            logger.info(f"Downloading {symbol} ({yahoo_symbol}) {timeframe} from {start_date} to {end_date}")
-            
-            # Download data
             ticker = yf.Ticker(yahoo_symbol)
             df = ticker.history(
                 start=start_date,
@@ -63,9 +54,7 @@ class YahooProvider(BaseProvider):
                 logger.warning(f"No data downloaded for {symbol}")
                 return None
             
-            # Clean up the dataframe
             df = self._clean_dataframe(df, symbol, timeframe)
-            
             logger.info(f"Downloaded {len(df)} rows for {symbol}")
             return df
             
