@@ -1,23 +1,35 @@
+# Core
 python-dotenv
 pydantic
 pydantic-settings
 sqlalchemy
 psycopg2-binary
 asyncpg
-pandas
-numpy
-scipy
 fastapi
 uvicorn[standard]
 websockets
+
+# Data Processing
+pandas
+numpy
+scipy
+
+# Providers
 yfinance
-openbb
 requests
+
+# ML/AI
 xgboost
 scikit-learn
 joblib
+
+# Analysis
 matplotlib
 seaborn
+
+# Scheduling
 apscheduler
 pytz
+
+# Other
 python-multipart
