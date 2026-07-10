@@ -1,0 +1,89 @@
+💡 Essential New UI Components for TradeX Frontend
+Your TradeX frontend (React) needs new pages and components to display the Data Engine's power. Here is a suggested structure:
+
+1. Data Engine Dashboard (/data-engine)
+   This is the main landing page for insights.
+
+Market Overview Panel:
+
+A live ticker of latest prices for your 6 assets.
+
+A "Market Sentiment" gauge (from AI insights).
+
+Summary of active trading signals.
+
+AI Insights Feed:
+
+A scrollable list of recent AI-generated insights (e.g., "EURUSD formed Bullish Order Block", "Bearish CHOCH detected").
+
+Each insight card shows: Title, Description, Confidence Score, Timestamp.
+
+2. ICT Analysis Page (/ict)
+   Interactive Chart:
+
+Use a library like lightweight-charts or chart.js to plot price data.
+
+Overlay ICT levels: Order Blocks (rectangles), FVGs (shaded areas), BOS/CHOCH labels, and Liquidity Zones.
+
+Allow toggling of different ICT components on/off.
+
+Signal Dashboard:
+
+A table/list of current signals from the Data Engine API.
+
+Columns: Asset, Signal Type (BUY/SELL), Confidence, Timestamp, Reason.
+
+3. Correlation Matrix Page (/correlation)
+   Heatmap:
+
+A visual heatmap (using recharts or d3) showing correlations between all assets.
+
+Color scale from red (negative) to green (positive).
+
+Currency Strength Meter:
+
+A bar chart or gauge showing relative strength of USD, EUR, GBP, and Gold.
+
+Highlight the strongest and weakest currencies.
+
+4. Backtesting Page (/backtest)
+   Strategy Builder:
+
+A form to select a strategy (e.g., ICT OB Strategy, AI Prediction Strategy).
+
+Select assets, date range, and initial capital.
+
+Results Panel:
+
+Display key metrics: Total Return, Win Rate, Sharpe Ratio, Max Drawdown.
+
+Plot an equity curve (performance chart).
+
+Show a trade list with entry/exit details.
+
+5. Trading Journal Integration (Existing)
+   Auto-fill Trade Entry:
+
+When you click a "Trade" button on a signal, it pre-populates the "Add Trade" form in your journal.
+
+Fields: Asset, Entry Price, Direction, Stop Loss, Take Profit.
+
+6. Alert System (New Component)
+   Notification Bell:
+
+A bell icon on the navbar that shows real-time alerts.
+
+Alerts for: New Trading Signals, Market Regime Changes, Correlation Breakouts, Data Update Completion.
+
+Clicking an alert navigates to the relevant page.
+
+7. System Status Page (/system)
+   Data Pipeline Health:
+
+Show the status of the latest data update (e.g., "Last Update: 2026-07-10 17:00 EST - Success").
+
+Display total candles in the database.
+
+API Key Management (for admin):
+
+Manage your NewsAPI and FRED API keys securely.

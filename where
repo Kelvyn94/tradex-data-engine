@@ -1,0 +1,81 @@
+then this is the current frontend tradex with other backend as follows in the link:
+https://tradex-kelvyn94.vercel.app/
+github: https://github.com/Kelvyn94/Tradex
+
+backend
+its readme file:
+
+# TRADEX - Trading Journal & Analytics
+
+A professional trading journal application built with React, Node.js, and PostgreSQL.
+
+## 🚀 Features
+
+- **User Authentication**: Secure JWT-based authentication
+- **Trade Management**: Add, edit, and delete trades
+- **Live P&L Preview**: Real-time profit/loss calculations
+- **Risk Management**: Track risk-reward ratios
+- **Analytics**: Performance metrics and charts
+- **Forex & Gold Support**: Trade gold and forex with pip calculations
+- **Responsive Design**: Works on desktop and mobile
+
+## 🛠️ Tech Stack
+
+### Backend
+
+- Node.js with Express
+- PostgreSQL (Neon)
+- JWT Authentication
+- Bcrypt for password hashing
+
+### Frontend
+
+- React with Vite
+- Tailwind CSS
+- Recharts for analytics
+- React Router for navigation
+- Lucide React icons
+
+Screenshot include:
+
+<img width="1358" height="577" alt="image" src="https://github.com/user-attachments/assets/2a2eb971-7eb1-4ed9-9d45-c75d83c5023f" />
+
+## 📦 Installation
+
+### Prerequisites
+
+- Node.js v18+
+- PostgreSQL (Neon or local)
+- npm or yarn
+
+### Backend Setup
+
+```bash
+cd Backend
+npm install
+cp .env.example .env
+# Update .env with your database credentials
+npm run dev
+```
+
+github link:
+https://github.com/Kelvyn94/Tradex/tree/main/Backend
+
+advice me what can i do given i also have this dataengine coming up which i just need a good financial platform that will help improve my trading
+okay and for th database they are in the same free tier in Neon as different projects as follows:
+trade-journal-db, connection string: postgresql://neondb_owner:npg_faNmnb8q5Wds@ep-twilight-brook-adbmb6hq-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+
+which this is connected to our current project of data engine created a schema and the tables their
+
+and for tradex-db, connection string:
+postgresql://neondb_owner:npg_kgLCalwt12sS@ep-fancy-sound-adxhl6yk-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+
+and for the frontend vercel:
+https://tradex-kelvyn94.vercel.app/
+https://tradex-git-main-kelvyn94.vercel.app/
+https://tradex-cpulbq34f-kelvyn94.vercel.app/
+
+and for the backend render:
+https://tradex-backend-ecvs.onrender.com/
+
+where the data engine has not been deployed yet, what is you suggestions

@@ -1,0 +1,7 @@
+DATE_FORMAT = "%Y-%m-%d"
+
+CSV_EXTENSION = ".csv"
+
+MAX_RETRIES = 3
+
+REQUEST_TIMEOUT = 30
