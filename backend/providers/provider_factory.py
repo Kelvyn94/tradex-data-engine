@@ -1,13 +1,14 @@
 """
-Provider Factory for TradeX Data Engine.
+Provider Factory - Uses Yahoo only (no openbb dependency).
 """
 
 from typing import Dict, Type, Optional, List
 import logging
 from backend.providers.base_provider import BaseProvider
-from backend.providers.openbb_provider import OpenBBProvider
+from backend.providers.yahoo_provider import YahooProvider
 
 logger = logging.getLogger(__name__)
+
 
 class ProviderFactory:
     """Factory class for managing data providers."""
@@ -18,10 +19,11 @@ class ProviderFactory:
         self._register_default_providers()
     
     def _register_default_providers(self):
+        """Register only Yahoo (openbb removed)."""
         try:
-            self.register_provider('openbb', OpenBBProvider)
+            self.register_provider('yahoo', YahooProvider)
         except Exception as e:
-            logger.warning(f"OpenBB not available: {e}")
+            logger.warning(f"Yahoo not available: {e}")
         
         logger.info(f"Registered providers: {list(self._providers.keys())}")
     
@@ -35,10 +37,9 @@ class ProviderFactory:
                 return self._get_or_create_instance(name)
             return None
         
-        # Try openbb first, then yahoo
-        for provider_name in ['openbb', 'yahoo']:
-            if provider_name in self._providers:
-                return self._get_or_create_instance(provider_name)
+        # Only use yahoo
+        if 'yahoo' in self._providers:
+            return self._get_or_create_instance('yahoo')
         
         return None
     
