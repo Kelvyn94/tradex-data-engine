@@ -17,9 +17,14 @@ from backend.ict.dealing_range import DealingRangeAnalyzer
 from backend.ict.quarterly_theory import QuarterlyTheoryAnalyzer
 from backend.ict.smt import SMTAnalyzer
 
-# Import ICTService from services folder
-from backend.services.ict_service import ICTService
-
+# ICTService (backend/services/ict_service.py) intentionally is NOT
+# re-exported here. It imports FROM these submodules (market_structure,
+# bos, choch, ...) to build its combined analysis; re-exporting it from
+# this package's __init__ would mean this package imports back from a
+# module that imports from this package — a circular import. It was
+# never triggered because nothing imported ict_service.py until
+# api/routes/ict_routes.py started doing so; import ICTService directly
+# from backend.services.ict_service instead.
 __all__ = [
     'MarketStructure',
     'BOSDetector',
@@ -34,5 +39,4 @@ __all__ = [
     'DealingRangeAnalyzer',
     'QuarterlyTheoryAnalyzer',
     'SMTAnalyzer',
-    'ICTService',
 ]
