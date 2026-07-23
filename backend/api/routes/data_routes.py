@@ -117,25 +117,25 @@ async def get_latest(
     """
     try:
         candle = db_service.get_latest_candle(asset, timeframe)
-        
+
         if not candle:
             return {
                 "status": "success",
                 "data": None,
                 "message": "No data found"
             }
-        
+
         return {
             "status": "success",
             "asset": asset,
             "timeframe": timeframe,
             "data": {
-                "timestamp": candle.timestamp.isoformat(),
-                "open": float(candle.open),
-                "high": float(candle.high),
-                "low": float(candle.low),
-                "close": float(candle.close),
-                "volume": candle.volume
+                "timestamp": candle["timestamp"].isoformat(),
+                "open": candle["open"],
+                "high": candle["high"],
+                "low": candle["low"],
+                "close": candle["close"],
+                "volume": candle["volume"]
             }
         }
         

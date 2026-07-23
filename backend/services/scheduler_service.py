@@ -219,7 +219,7 @@ class SchedulerService:
             for asset in settings.ASSETS:
                 latest = db_service.get_latest_candle(asset, 'daily')
                 if latest:
-                    age = (datetime.now() - latest.timestamp).total_seconds() / 3600
+                    age = (datetime.now() - latest["timestamp"]).total_seconds() / 3600
                     if age > 48:  # More than 48 hours old
                         logger.warning(f"⚠️ {asset} daily data is {age:.1f} hours old")
             

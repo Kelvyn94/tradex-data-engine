@@ -5,6 +5,7 @@ Identifies divergence between correlated assets.
 
 import pandas as pd
 import numpy as np
+from datetime import timedelta
 from typing import Dict, List, Optional, Tuple
 import logging
 

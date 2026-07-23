@@ -85,7 +85,7 @@ class AutomationService:
         for asset in settings.ASSETS:
             latest = db_service.get_latest_candle(asset, 'daily')
             if latest:
-                age = (datetime.now() - latest.timestamp).days
+                age = (datetime.now() - latest["timestamp"]).days
                 if age > 1:
                     logger.info(f"Updating data for {asset} (last: {age} days ago)")
                     # Trigger update

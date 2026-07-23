@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
-from backend.api.routes import data_routes, insight_routes, websocket_routes
+from backend.api.routes import data_routes, insight_routes, websocket_routes, ict_routes
 from backend.services.scheduler_service import scheduler
 from backend.config.settings import settings
 
@@ -35,6 +35,7 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(data_routes.router)
     app.include_router(insight_routes.router)
+    app.include_router(ict_routes.router)
     
     # Include WebSocket routes
     app.include_router(websocket_routes.router)

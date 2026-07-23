@@ -130,13 +130,34 @@ class DatabaseService:
             
             return pd.DataFrame(data)
     
-    def get_latest_candle(self, asset: str, timeframe: str) -> Optional[AssetCandle]:
-        """Get the latest candle for an asset."""
+    def get_latest_candle(self, asset: str, timeframe: str) -> Optional[Dict[str, Any]]:
+        """
+        Get the latest candle for an asset, as a plain dict.
+
+        Returning the raw ORM instance here used to crash every caller:
+        the session closes when this `with` block exits, and SQLAlchemy
+        expires all attributes on a closed session by default, so any
+        field access afterward (e.g. candle.timestamp in data_routes.py)
+        raised "Instance is not bound to a Session". Extracting the
+        fields here, while the session is still open, avoids that.
+        """
         with self.db_manager.get_session() as session:
-            return session.query(AssetCandle).filter(
+            candle = session.query(AssetCandle).filter(
                 AssetCandle.asset_symbol == asset,
                 AssetCandle.timeframe == timeframe
             ).order_by(desc(AssetCandle.timestamp)).first()
+
+            if candle is None:
+                return None
+
+            return {
+                'timestamp': candle.timestamp,
+                'open': float(candle.open),
+                'high': float(candle.high),
+                'low': float(candle.low),
+                'close': float(candle.close),
+                'volume': candle.volume,
+            }
     
     def get_candle_dates(self, asset: str, timeframe: str) -> List[datetime]:
         """Get all dates for which we have candles."""

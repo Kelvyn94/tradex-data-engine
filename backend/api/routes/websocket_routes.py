@@ -92,13 +92,13 @@ async def websocket_endpoint(websocket: WebSocket, asset: str):
                 "type": "initial_data",
                 "asset": asset,
                 "timestamp": datetime.now().isoformat(),
-                "price": float(latest.close),
+                "price": latest["close"],
                 "data": {
-                    "open": float(latest.open),
-                    "high": float(latest.high),
-                    "low": float(latest.low),
-                    "close": float(latest.close),
-                    "volume": latest.volume
+                    "open": latest["open"],
+                    "high": latest["high"],
+                    "low": latest["low"],
+                    "close": latest["close"],
+                    "volume": latest["volume"]
                 }
             })
         
