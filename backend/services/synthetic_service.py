@@ -11,47 +11,78 @@ logger = logging.getLogger(__name__)
 
 class SyntheticService:
     """Service for creating synthetic assets from existing data."""
-    
+
     @staticmethod
-    def create_xaueur(xauusd: pd.DataFrame, eurusd: pd.DataFrame, 
+    def _merge_key(df: pd.DataFrame, timeframe: str) -> pd.Series:
+        """
+        Key to merge two legs on. Daily/weekly bars from different Yahoo
+        tickers are stamped at each *exchange's own* local midnight - COMEX
+        futures (GC=F/SI=F) in America/New_York, FX pairs (=X) in
+        Europe/London - so the same trading day lands at two different
+        absolute instants (e.g. 2026-07-20 00:00-04:00 vs
+        2026-07-20 00:00+01:00). Merging on the raw tz-aware timestamp never
+        matches (0% match rate, confirmed live), and merging on a
+        UTC-converted timestamp is actively wrong: converting London's
+        +01:00 (BST) local midnight to UTC lands on the *previous* UTC date,
+        which would pair a day with its neighbor instead of failing loudly.
+        The correct key is each leg's own local calendar date, unconverted -
+        that's what "2026-07-20" means on both tickers regardless of which
+        exchange's clock stamped it.
+        Intraday bars (1h/30m) are unaffected - both providers tick on the
+        same UTC-aligned grid, so exact timestamp equality already works
+        (verified: 93/93 and 186/186 matched live) and switching those to a
+        date-only key would wrongly cross-join every bar within a day.
+        """
+        if timeframe in ('daily', 'weekly'):
+            return df['timestamp'].dt.date
+        return df['timestamp']
+
+    @staticmethod
+    def create_xaueur(xauusd: pd.DataFrame, eurusd: pd.DataFrame,
                       timeframe: str = 'daily') -> Optional[pd.DataFrame]:
         """
         Create XAUEUR from XAUUSD and EURUSD.
-        
+
         XAUEUR = XAUUSD / EURUSD
-        
+
         Args:
             xauusd: DataFrame with XAUUSD data
             eurusd: DataFrame with EURUSD data
             timeframe: Timeframe of the data
-            
+
         Returns:
             DataFrame with XAUEUR data
         """
         if xauusd is None or xauusd.empty:
             logger.warning("XAUUSD data is empty")
             return None
-        
+
         if eurusd is None or eurusd.empty:
             logger.warning("EURUSD data is empty")
             return None
-        
+
         try:
             # Ensure both dataframes have timestamp as datetime
             xauusd_copy = xauusd.copy()
             eurusd_copy = eurusd.copy()
-            
+
             xauusd_copy['timestamp'] = pd.to_datetime(xauusd_copy['timestamp'])
             eurusd_copy['timestamp'] = pd.to_datetime(eurusd_copy['timestamp'])
-            
-            # Merge dataframes on timestamp
+
+            xauusd_copy['_merge_key'] = SyntheticService._merge_key(xauusd_copy, timeframe)
+            eurusd_copy['_merge_key'] = SyntheticService._merge_key(eurusd_copy, timeframe)
+
+            # Merge on _merge_key (calendar date for daily/weekly, exact
+            # timestamp for intraday - see _merge_key docstring), but keep
+            # XAUUSD's own timestamp as the row's timestamp so downstream
+            # storage/queries see one consistent clock for this symbol.
             merged = pd.merge(
-                xauusd_copy[['timestamp', 'open', 'high', 'low', 'close']],
-                eurusd_copy[['timestamp', 'open', 'high', 'low', 'close']],
-                on='timestamp',
+                xauusd_copy[['_merge_key', 'timestamp', 'open', 'high', 'low', 'close']],
+                eurusd_copy[['_merge_key', 'open', 'high', 'low', 'close']],
+                on='_merge_key',
                 suffixes=('_xau', '_eur')
             )
-            
+
             if merged.empty:
                 logger.warning("No matching timestamps between XAUUSD and EURUSD")
                 return None
@@ -117,15 +148,20 @@ class SyntheticService:
             
             xauusd_copy['timestamp'] = pd.to_datetime(xauusd_copy['timestamp'])
             gbpusd_copy['timestamp'] = pd.to_datetime(gbpusd_copy['timestamp'])
-            
-            # Merge dataframes on timestamp
+
+            xauusd_copy['_merge_key'] = SyntheticService._merge_key(xauusd_copy, timeframe)
+            gbpusd_copy['_merge_key'] = SyntheticService._merge_key(gbpusd_copy, timeframe)
+
+            # See _merge_key docstring: calendar-date match for daily/weekly,
+            # exact timestamp for intraday. XAUUSD's timestamp is kept as
+            # the row's timestamp.
             merged = pd.merge(
-                xauusd_copy[['timestamp', 'open', 'high', 'low', 'close']],
-                gbpusd_copy[['timestamp', 'open', 'high', 'low', 'close']],
-                on='timestamp',
+                xauusd_copy[['_merge_key', 'timestamp', 'open', 'high', 'low', 'close']],
+                gbpusd_copy[['_merge_key', 'open', 'high', 'low', 'close']],
+                on='_merge_key',
                 suffixes=('_xau', '_gbp')
             )
-            
+
             if merged.empty:
                 logger.warning("No matching timestamps between XAUUSD and GBPUSD")
                 return None

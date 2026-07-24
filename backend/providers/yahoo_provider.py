@@ -76,7 +76,13 @@ class YahooProvider(BaseProvider):
         """Clean and normalize the downloaded dataframe."""
         df = df.reset_index()
         df.columns = df.columns.str.lower()
-        df.rename(columns={'date': 'timestamp'}, inplace=True)
+        # yfinance names the index column 'Date' for daily/weekly bars but
+        # 'Datetime' for intraday (1h/30m) - only mapping 'date' meant every
+        # intraday download raised KeyError on the next line (no 'timestamp'
+        # column) and was silently swallowed by download_asset()'s
+        # try/except, so 1h/30m/4h data has never actually populated for
+        # any asset.
+        df.rename(columns={'date': 'timestamp', 'datetime': 'timestamp'}, inplace=True)
         
         expected_columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
         df = df[expected_columns]

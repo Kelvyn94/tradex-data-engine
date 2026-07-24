@@ -158,47 +158,17 @@ class DownloadService:
                 return result
             
             result['provider'] = provider.name
-            
-            # Handle special timeframes
-            if timeframe == '4h':
-                # Download 1h data and aggregate to 4h
-                logger.info(f"Downloading 1h data for {symbol} to aggregate to 4h")
-                df_1h = provider.download_asset(symbol, '1h', start_date, end_date)
-                
-                if df_1h is None or df_1h.empty:
-                    result['message'] = f"No 1h data available for {symbol}"
-                    return result
-                
-                # Aggregate to 4h
-                df = self.aggregation_service.aggregate_4h(df_1h)
+
+            # Handle special timeframes (shared with _create_synthetic_asset
+            # via _download_asset_with_timeframe, so both paths aggregate
+            # 4h/weekly identically instead of synthetic assets silently
+            # mislabeling raw 1h data as 4h)
+            df = self._download_asset_with_timeframe(provider, symbol, timeframe, start_date, end_date)
+            if timeframe in ('4h', 'weekly'):
+                result['timeframe'] = timeframe
                 if df is None or df.empty:
-                    result['message'] = f"Failed to aggregate 4h data for {symbol}"
+                    result['message'] = f"Failed to build {timeframe} data for {symbol}"
                     return result
-                
-                # Update timeframe in result
-                result['timeframe'] = '4h'
-                
-            elif timeframe == 'weekly':
-                # Download daily data and aggregate to weekly
-                logger.info(f"Downloading daily data for {symbol} to aggregate to weekly")
-                df_daily = provider.download_asset(symbol, 'daily', start_date, end_date)
-                
-                if df_daily is None or df_daily.empty:
-                    result['message'] = f"No daily data available for {symbol}"
-                    return result
-                
-                # Aggregate to weekly
-                df = self.aggregation_service.aggregate_weekly(df_daily)
-                if df is None or df.empty:
-                    result['message'] = f"Failed to aggregate weekly data for {symbol}"
-                    return result
-                
-                # Update timeframe in result
-                result['timeframe'] = 'weekly'
-                
-            else:
-                # Normal download
-                df = provider.download_asset(symbol, timeframe, start_date, end_date)
             
             # Check if we got data
             if df is None or df.empty:
@@ -240,6 +210,32 @@ class DownloadService:
         
         return result
     
+    def _download_asset_with_timeframe(self, provider, symbol: str, timeframe: str,
+                                        start_date: datetime, end_date: datetime):
+        """
+        Download a single asset at the requested timeframe, aggregating from
+        a finer provider timeframe when the provider has no native interval
+        for it (Yahoo has no 4h interval - YahooProvider maps '4h' to '1h').
+        Shared by the normal single-asset path and synthetic-asset creation
+        so both compute 4h/weekly identically, rather than synthetic assets
+        fetching raw 1h data and labeling it 4h.
+        """
+        if timeframe == '4h':
+            logger.info(f"Downloading 1h data for {symbol} to aggregate to 4h")
+            df_1h = provider.download_asset(symbol, '1h', start_date, end_date)
+            if df_1h is None or df_1h.empty:
+                return None
+            return self.aggregation_service.aggregate_4h(df_1h)
+
+        elif timeframe == 'weekly':
+            logger.info(f"Downloading daily data for {symbol} to aggregate to weekly")
+            df_daily = provider.download_asset(symbol, 'daily', start_date, end_date)
+            if df_daily is None or df_daily.empty:
+                return None
+            return self.aggregation_service.aggregate_weekly(df_daily)
+
+        return provider.download_asset(symbol, timeframe, start_date, end_date)
+
     def _create_synthetic_asset(self, symbol: str, timeframe: str,
                                start_date: datetime, end_date: datetime) -> Dict[str, Any]:
         """
@@ -264,8 +260,8 @@ class DownloadService:
             # Map synthetic asset to its components
             if symbol == 'XAUEUR':
                 # Need XAUUSD and EURUSD
-                xauusd = provider.download_asset('XAUUSD', timeframe, start_date, end_date)
-                eurusd = provider.download_asset('EURUSD', timeframe, start_date, end_date)
+                xauusd = self._download_asset_with_timeframe(provider, 'XAUUSD', timeframe, start_date, end_date)
+                eurusd = self._download_asset_with_timeframe(provider, 'EURUSD', timeframe, start_date, end_date)
                 
                 if xauusd is None or xauusd.empty:
                     result['message'] = "XAUUSD data not available for synthetic XAUEUR"
@@ -279,8 +275,8 @@ class DownloadService:
                 
             elif symbol == 'XAUGBP':
                 # Need XAUUSD and GBPUSD
-                xauusd = provider.download_asset('XAUUSD', timeframe, start_date, end_date)
-                gbpusd = provider.download_asset('GBPUSD', timeframe, start_date, end_date)
+                xauusd = self._download_asset_with_timeframe(provider, 'XAUUSD', timeframe, start_date, end_date)
+                gbpusd = self._download_asset_with_timeframe(provider, 'GBPUSD', timeframe, start_date, end_date)
                 
                 if xauusd is None or xauusd.empty:
                     result['message'] = "XAUUSD data not available for synthetic XAUGBP"
