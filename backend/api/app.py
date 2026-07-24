@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 from datetime import datetime
 
-from backend.api.routes import data_routes, insight_routes, websocket_routes, ict_routes, cot_routes, correlation_routes
+from backend.api.routes import data_routes, insight_routes, websocket_routes, ict_routes, cot_routes, correlation_routes, macro_regime_routes
 from backend.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -36,6 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(ict_routes.router)
     app.include_router(cot_routes.router)
     app.include_router(correlation_routes.router)
+    app.include_router(macro_regime_routes.router)
     app.include_router(websocket_routes.router)
     
     @app.get("/")
