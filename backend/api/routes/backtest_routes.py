@@ -2,6 +2,7 @@
 Backtest execution routes.
 """
 
+import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -14,6 +15,8 @@ from backend.strategies.simple_momentum import SimpleMomentumStrategy
 from backend.strategies.ict_aggressive import ICTAggressiveStrategy
 from backend.strategies.ict_correlation_combined import ICTCorrelationCombined
 from backend.strategies.pairs_trading_v2 import PairsTradingStrategyV2
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/backtest", tags=["backtest"])
 
@@ -79,7 +82,16 @@ async def run_backtest(request: BacktestRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid date: {e}")
 
-    data = load_backtest_data(request.assets, request.timeframe, start_date, end_date, request.lookback)
+    try:
+        data = load_backtest_data(request.assets, request.timeframe, start_date, end_date, request.lookback)
+    except Exception as e:
+        # A DB-level failure (connection issue, etc.) must not surface as
+        # a raw unhandled 500 with an internal stack trace - same
+        # no-silent-failure standard as every other route this session,
+        # just applied to the "the database itself failed" case rather
+        # than "the database has no rows."
+        logger.error(f"Backtest data load failed: {e}")
+        raise HTTPException(status_code=503, detail="Unable to load historical data right now")
 
     missing = [a for a in request.assets if a not in data]
     if missing:
