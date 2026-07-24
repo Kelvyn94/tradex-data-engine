@@ -67,13 +67,22 @@ class MacroRegimeService:
             return self._cache
 
         results: Dict[str, dict] = {}
+        # TEMPORARY DIAGNOSTIC (see D:\Development\Data Engine handoff notes):
+        # DXY is silently missing from the live Render deployment while
+        # US10Y/VIX succeed and DXY works locally. No access to Render's
+        # server logs, so capture the real exception here and surface it
+        # in the API response until the actual cause is identified, then
+        # remove/quiet this.
+        errors: Dict[str, str] = {}
         prior_series = (self._cache or {}).get("series", {})
 
         for key, meta in MACRO_SERIES.items():
             try:
                 data = yf.Ticker(meta["ticker"]).history(period="5d")
                 if data.empty or len(data) < 2:
-                    logger.warning(f"Macro: no/insufficient data for {meta['ticker']}")
+                    msg = f"empty/insufficient history ({len(data)} rows)"
+                    logger.warning(f"Macro: no/insufficient data for {meta['ticker']}: {msg}")
+                    errors[key] = msg
                     if key in prior_series:
                         results[key] = prior_series[key]
                     continue
@@ -93,7 +102,9 @@ class MacroRegimeService:
                     "asOf": data.index[-1].isoformat(),
                 }
             except Exception as e:
-                logger.error(f"Macro fetch failed for {meta['ticker']}: {e}")
+                msg = f"{type(e).__name__}: {e}"
+                logger.error(f"Macro fetch failed for {meta['ticker']}: {msg}")
+                errors[key] = msg
                 if key in prior_series:
                     results[key] = prior_series[key]
 
@@ -114,6 +125,9 @@ class MacroRegimeService:
                 risk_regime = "RISK_OFF"
 
         payload = {"series": results, "riskRegime": risk_regime}
+        if errors:
+            # TEMPORARY DIAGNOSTIC field - remove once DXY root cause is fixed.
+            payload["_fetchErrors"] = errors
         self._cache = payload
         self._cache_time = now
         logger.info(f"Macro regime refreshed: {list(results.keys())}, regime={risk_regime}")
