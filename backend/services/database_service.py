@@ -105,13 +105,22 @@ class DatabaseService:
                 query = query.filter(AssetCandle.timestamp >= start_date)
             if end_date:
                 query = query.filter(AssetCandle.timestamp <= end_date)
-            
-            query = query.order_by(AssetCandle.timestamp)
-            
-            if limit:
-                query = query.limit(limit)
-            
-            results = query.all()
+
+            if limit and not start_date:
+                # "Give me the last N candles" (no explicit start_date) means
+                # most-recent-N. Ordering ascending and then LIMITing takes
+                # the OLDEST N instead - every analyze_asset()/SMT caller
+                # that passes only `limit` was silently analyzing the start
+                # of an asset's history, not current price action. Order
+                # descending to grab the right rows, then reverse back to
+                # chronological order, which every caller expects.
+                query = query.order_by(AssetCandle.timestamp.desc()).limit(limit)
+                results = list(reversed(query.all()))
+            else:
+                query = query.order_by(AssetCandle.timestamp)
+                if limit:
+                    query = query.limit(limit)
+                results = query.all()
             
             if not results:
                 return pd.DataFrame()
