@@ -7,7 +7,7 @@ Used by: Bridgewater Associates, AQR Capital
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
 from scipy import stats
 from scipy.stats import spearmanr, pearsonr
@@ -63,16 +63,22 @@ class CorrelationMatrix:
         """
         if assets is None:
             assets = settings.ASSETS
-        
+
         self.assets = assets
-        
-        # Get data for all assets
+
+        # Get data for all assets. `lookback` is documented as "N periods"
+        # (252 = ~1 trading year, the standard institutional convention)
+        # but was previously implemented as a CALENDAR-DAY window
+        # (start_date = now - lookback*2 days) with the fetched data never
+        # truncated back down to lookback periods - so daily data actually
+        # used ~504 candles, and 4h/1h/30m data used thousands, while
+        # weekly data used ~72. Fixed to fetch exactly the most recent
+        # `lookback` candles via get_candles(limit=...), which correctly
+        # means "N periods" regardless of timeframe (same fix pattern
+        # already applied to ict_service.py's oldest-100-candles bug).
         data = {}
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=lookback * 2)
-        
         for asset in assets:
-            df = db_service.get_candles(asset, timeframe, start_date, end_date)
+            df = db_service.get_candles(asset, timeframe, limit=lookback)
             if df is not None and not df.empty:
                 data[asset] = df.set_index('timestamp')['close']
         
