@@ -4,15 +4,13 @@ Runs backtests on historical data with proper simulation.
 """
 
 import pandas as pd
-import numpy as np
 from typing import Dict, List, Optional, Tuple, Callable
 from datetime import datetime, timedelta
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
 
-from backend.services.database_service import db_service
-from backend.config.settings import settings
+from backend.backtesting.statistics import PerformanceStatistics
 
 logger = logging.getLogger(__name__)
 
@@ -48,18 +46,21 @@ class BacktestEngine:
     
     def __init__(self, initial_capital: float = 100000,
                  commission: float = 0.001,  # 0.1% per trade
-                 slippage: float = 0.001):   # 0.1% slippage
+                 slippage: float = 0.001,    # 0.1% slippage
+                 risk_free_rate: float = 0.02):  # 2% annual, matches PerformanceStatistics' default
         """
         Initialize backtest engine.
-        
+
         Args:
             initial_capital: Starting capital
             commission: Commission rate (0.1% default)
             slippage: Slippage rate (0.1% default)
+            risk_free_rate: Annual risk-free rate used for Sharpe/Sortino (2% default)
         """
         self.initial_capital = initial_capital
         self.commission = commission
         self.slippage = slippage
+        self.risk_free_rate = risk_free_rate
         self.cash = initial_capital
         self.positions = {}  # asset -> {'size': float, 'entry_price': float, 'entry_time': datetime}
         self.trades = []
@@ -315,57 +316,29 @@ class BacktestEngine:
         return total
     
     def _calculate_results(self) -> Dict:
-        """Calculate backtest results."""
+        """
+        Calculate backtest results via the shared PerformanceStatistics
+        module (statistics.py), rather than this engine's own separate,
+        previously-inconsistent inline calculation (e.g. this method used
+        to annualize from actual calendar days while statistics.py assumed
+        len(equity_curve)/252 - correct only for literal daily bars).
+        """
         if not self.equity_curve:
             return {'error': 'No equity data'}
-        
+
         equity_df = pd.DataFrame(self.equity_curve)
         equity_df = equity_df.set_index('timestamp')
-        equity_df['returns'] = equity_df['value'].pct_change()
-        
-        # Basic metrics
-        total_return = (equity_df['value'].iloc[-1] - equity_df['value'].iloc[0]) / equity_df['value'].iloc[0]
-        days = (equity_df.index[-1] - equity_df.index[0]).days
-        years = days / 365.25 if days > 0 else 1
-        annualized_return = (1 + total_return) ** (1 / years) - 1 if years > 0 else 0
-        
-        volatility = equity_df['returns'].std() * np.sqrt(252)
-        
-        risk_free_rate = 0.02
-        excess_returns = equity_df['returns'] - risk_free_rate / 252
-        sharpe_ratio = (excess_returns.mean() / excess_returns.std()) * np.sqrt(252) if excess_returns.std() > 0 else 0
-        
-        downside_returns = equity_df['returns'][equity_df['returns'] < 0]
-        sortino_ratio = (excess_returns.mean() * 252) / (downside_returns.std() * np.sqrt(252)) if len(downside_returns) > 0 and downside_returns.std() > 0 else 0
-        
-        peak = equity_df['value'].iloc[0]
-        max_drawdown = 0
-        for value in equity_df['value']:
-            if value > peak:
-                peak = value
-            drawdown = (peak - value) / peak
-            if drawdown > max_drawdown:
-                max_drawdown = drawdown
-        
+        equity_series = equity_df['value']
+
+        stats = PerformanceStatistics(risk_free_rate=self.risk_free_rate)
+        results = stats.calculate_all(equity_series, self.trades)
+
+        # Preserve fields the old inline version returned that
+        # PerformanceStatistics doesn't compute, for caller compatibility
+        # (walk_forward.py/optimizer.py only read fields both versions
+        # share: total_return, sharpe_ratio, win_rate, max_drawdown).
         trade_pnls = [t.get('pnl', 0) for t in self.trades]
-        wins = [p for p in trade_pnls if p > 0]
-        losses = [p for p in trade_pnls if p < 0]
-        
-        win_rate = len(wins) / len(trade_pnls) if trade_pnls else 0
-        total_wins = sum(wins) if wins else 0
-        total_losses = abs(sum(losses)) if losses else 0
-        profit_factor = total_wins / total_losses if total_losses > 0 else float('inf') if total_wins > 0 else 0
-        
-        return {
-            'total_return': total_return,
-            'annualized_return': annualized_return,
-            'volatility': volatility,
-            'sharpe_ratio': sharpe_ratio,
-            'sortino_ratio': sortino_ratio,
-            'max_drawdown': max_drawdown,
-            'total_trades': len(self.trades),
-            'win_rate': win_rate,
-            'profit_factor': profit_factor,
-            'total_pnl': sum(trade_pnls) if trade_pnls else 0,
-            'trades': self.trades
-        }
+        results['total_pnl'] = sum(trade_pnls) if trade_pnls else 0
+        results['trades'] = self.trades
+
+        return results

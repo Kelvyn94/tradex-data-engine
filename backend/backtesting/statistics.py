@@ -34,25 +34,31 @@ class PerformanceStatistics:
         self.trades = []
         self.equity_curve = None
         self.daily_returns = None
+        self.periods_per_year = None
         self.logger = logger
     
-    def calculate_all(self, equity_curve: pd.Series, 
+    def calculate_all(self, equity_curve: pd.Series,
                       trades: List[Dict]) -> Dict:
         """
         Calculate all performance statistics.
-        
+
         Args:
-            equity_curve: Series of equity values
+            equity_curve: Series of equity values, indexed by timestamp.
+                Works for any bar frequency (weekly/daily/4h/1h/30m) -
+                annualization is inferred from the actual timestamps
+                rather than assuming daily bars.
             trades: List of trade dictionaries
-            
+
         Returns:
             Complete performance metrics
         """
         self.trades = trades
         self.equity_curve = equity_curve
-        
-        # Calculate daily returns
+
+        # "daily_returns" is a legacy name - it's really "per-period
+        # returns," whatever the equity curve's actual bar frequency is.
         self.daily_returns = equity_curve.pct_change().dropna()
+        self.periods_per_year = self._infer_periods_per_year()
         
         results = {
             # Basic metrics
@@ -90,58 +96,91 @@ class PerformanceStatistics:
         
         return results
     
+    def _infer_periods_per_year(self) -> float:
+        """
+        Infer how many equity-curve periods occur per calendar year from
+        the actual timestamps, instead of assuming daily bars (252/year).
+        This engine's data spans weekly/daily/4h/1h/30m timeframes - a
+        hardcoded 252 silently misstates annualized return/Sharpe/Sortino
+        for anything but literal daily bars (e.g. treating 4h bars as
+        daily bars overstates annualized volatility by ~sqrt(6x)).
+        """
+        if self.equity_curve is None or len(self.equity_curve) < 2:
+            return 252.0
+
+        index = self.equity_curve.index
+        if not isinstance(index, pd.DatetimeIndex):
+            return 252.0  # no real timestamps available - fall back
+
+        total_seconds = (index[-1] - index[0]).total_seconds()
+        if total_seconds <= 0:
+            return 252.0
+
+        seconds_per_period = total_seconds / (len(index) - 1)
+        seconds_per_year = 365.25 * 24 * 3600
+        return seconds_per_year / seconds_per_period
+
     def _calculate_total_return(self) -> float:
         """Calculate total return."""
         if self.equity_curve is None or len(self.equity_curve) < 2:
             return 0
-        
+
         return (self.equity_curve.iloc[-1] - self.equity_curve.iloc[0]) / self.equity_curve.iloc[0]
-    
+
     def _calculate_annualized_return(self) -> float:
-        """Calculate annualized return."""
+        """Calculate annualized return from actual elapsed calendar time,
+        not a bar-count/252 assumption."""
         if self.equity_curve is None or len(self.equity_curve) < 2:
             return 0
-        
+
         total_return = self._calculate_total_return()
-        days = len(self.equity_curve)
-        years = days / 252
-        
-        if years == 0:
+        index = self.equity_curve.index
+
+        if isinstance(index, pd.DatetimeIndex):
+            total_seconds = (index[-1] - index[0]).total_seconds()
+            years = total_seconds / (365.25 * 24 * 3600) if total_seconds > 0 else 0
+        else:
+            years = len(self.equity_curve) / 252  # fallback: no real timestamps
+
+        if years <= 0:
             return 0
-        
+
         return (1 + total_return) ** (1 / years) - 1
-    
+
     def _calculate_volatility(self) -> float:
         """Calculate annualized volatility."""
         if self.daily_returns is None or self.daily_returns.empty:
             return 0
-        
-        return self.daily_returns.std() * np.sqrt(252)
-    
+
+        periods_per_year = getattr(self, 'periods_per_year', None) or self._infer_periods_per_year()
+        return self.daily_returns.std() * np.sqrt(periods_per_year)
+
     def _calculate_sharpe_ratio(self) -> float:
         """Calculate Sharpe ratio."""
         if self.daily_returns is None or self.daily_returns.empty:
             return 0
-        
-        excess_returns = self.daily_returns - self.risk_free_rate / 252
+
+        periods_per_year = getattr(self, 'periods_per_year', None) or self._infer_periods_per_year()
+        excess_returns = self.daily_returns - self.risk_free_rate / periods_per_year
         if excess_returns.std() == 0:
             return 0
-        
-        return (excess_returns.mean() / excess_returns.std()) * np.sqrt(252)
-    
+
+        return (excess_returns.mean() / excess_returns.std()) * np.sqrt(periods_per_year)
+
     def _calculate_sortino_ratio(self) -> float:
         """Calculate Sortino ratio (downside risk only)."""
         if self.daily_returns is None or self.daily_returns.empty:
             return 0
-        
+
+        periods_per_year = getattr(self, 'periods_per_year', None) or self._infer_periods_per_year()
         downside_returns = self.daily_returns[self.daily_returns < 0]
         if len(downside_returns) == 0 or downside_returns.std() == 0:
             return 0
-        
-        excess_returns = self.daily_returns - self.risk_free_rate / 252
-        downside_deviation = downside_returns.std() * np.sqrt(252)
-        
-        return (excess_returns.mean() * 252) / downside_deviation
+
+        excess_returns = self.daily_returns - self.risk_free_rate / periods_per_year
+        downside_deviation = downside_returns.std() * np.sqrt(periods_per_year)
+
+        return (excess_returns.mean() * periods_per_year) / downside_deviation
     
     def _calculate_calmar_ratio(self) -> float:
         """Calculate Calmar ratio (return / max drawdown)."""
