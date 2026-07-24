@@ -6,15 +6,12 @@ Handles downloading, aggregation, and synthetic asset creation.
 from backend.providers.provider_factory import ProviderFactory
 from backend.services.aggregation_service import AggregationService
 from backend.services.synthetic_service import SyntheticService
+from backend.services.validation_service import ValidationService
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 import logging
 
 logger = logging.getLogger(__name__)
-
-class ValidationService:
-    def validate_dataframe(self, df, symbol, timeframe):
-        return {'pass': True, 'message': 'Validation passed'}
 
 class CleaningService:
     def clean_dataframe(self, df):
@@ -176,10 +173,21 @@ class DownloadService:
                 return result
             
             result['rows'] = len(df)
-            
-            # Validate data
-            self.validation_service.validate_dataframe(df, symbol, timeframe)
-            
+
+            # Validate data. A FAIL is logged loudly (with the specific
+            # issues and quality score) but does not block storage - on a
+            # free-tier pipeline, gaps from cold starts/rate limits are
+            # expected occasionally, and refusing to store anything less
+            # than perfect would mean legitimate data silently never
+            # arrives rather than arriving with a visible caveat.
+            validation_report = self.validation_service.validate(df)
+            result['validation'] = validation_report
+            if validation_report['status'] == 'FAIL':
+                logger.warning(
+                    f"Data quality FAIL for {symbol} {timeframe} "
+                    f"(score={validation_report['quality_score']}): {validation_report}"
+                )
+
             # Clean data
             cleaned_df, _ = self.cleaning_service.clean_dataframe(df)
             
