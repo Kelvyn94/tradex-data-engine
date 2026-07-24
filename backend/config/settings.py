@@ -7,6 +7,18 @@ from typing import List, Optional, Dict
 from dataclasses import dataclass, field
 import os
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
+
+def _required_env(key: str) -> str:
+    value = os.getenv(key)
+    if not value:
+        raise RuntimeError(
+            f"{key} is not set. Add it to your .env file (see .env.example) "
+            f"or set it in the Render dashboard's Environment tab."
+        )
+    return value
 
 @dataclass
 class Settings:
@@ -40,14 +52,16 @@ class Settings:
     LOGS_DIR: Path = Path('logs')
     
     # Database Configuration
-    DATABASE_URL: str = os.getenv('DATABASE_URL', "postgresql://neondb_owner:npg_faNmnb8q5Wds@ep-twilight-brook-adbmb6hq-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require")
-    
+    DATABASE_URL: str = field(default_factory=lambda: _required_env('DATABASE_URL'))
+
     DATABASE_POOL_SIZE: int = 10
     DATABASE_MAX_OVERFLOW: int = 20
-    
-    # API Keys
-    NEWS_API_KEY: str = os.getenv('NEWS_API_KEY', "06a2e8449d244722a2e432039dc0c46b")
-    FRED_API_KEY: str = os.getenv('FRED_API_KEY', "d5dc8c57d9922d0f2b3d04c64b2f7520")
+
+    # API Keys (NEWS_API_KEY/FRED_API_KEY are currently unused - FRED fetching
+    # is a stub and the news provider isn't wired into ProviderFactory - so
+    # these default to empty rather than hard-failing when unset)
+    NEWS_API_KEY: str = field(default_factory=lambda: os.getenv('NEWS_API_KEY', ''))
+    FRED_API_KEY: str = field(default_factory=lambda: os.getenv('FRED_API_KEY', ''))
     
     # Scheduler Settings
     SCHEDULER_ENABLED: bool = False  # DISABLED to prevent openbb errors
