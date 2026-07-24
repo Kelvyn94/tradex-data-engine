@@ -314,9 +314,9 @@ class PerformanceStatistics:
         avg_win = self._calculate_average_win()
         avg_loss = abs(self._calculate_average_loss())
         
-        if avg_loss == 0:
+        if avg_loss == 0 or avg_win == 0:
             return 0
-        
+
         return win_rate - ((1 - win_rate) * avg_loss / avg_win)
     
     def _calculate_recovery_factor(self) -> float:
