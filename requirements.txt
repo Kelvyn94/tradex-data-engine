@@ -1,10 +1,12 @@
 # Core
 python-dotenv
+# pydantic: transitive dependency of fastapi itself, even though this
+# app's own code never imports it directly - confirmed by removing it
+# and watching FastAPI fail to import. pydantic-settings, which this
+# app genuinely doesn't use (Settings is a plain dataclass), stays removed.
 pydantic
-pydantic-settings
 sqlalchemy
 psycopg2-binary
-asyncpg
 fastapi
 uvicorn[standard]
 websockets
@@ -18,18 +20,6 @@ scipy
 yfinance
 requests
 
-# ML/AI
-xgboost
-scikit-learn
-joblib
-
-# Analysis
-matplotlib
-seaborn
-
 # Scheduling
 apscheduler
 pytz
-
-# Other
-python-multipart
