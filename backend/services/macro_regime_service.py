@@ -28,8 +28,9 @@ used here.
 """
 
 import logging
+import time
 from datetime import datetime, timedelta
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 import yfinance as yf
 
@@ -41,6 +42,14 @@ MACRO_SERIES = {
     "VIX": {"ticker": "^VIX", "label": "CBOE Volatility Index"},
 }
 
+# Diagnosed in production (see _fetchErrors): DXY intermittently fails
+# with yfinance's YFRateLimitError from Render's IP while the other two
+# series succeed in the same run. Retrying with backoff is the correct
+# fix for genuine rate-limiting (as opposed to a permanent block, which
+# would fail identically on every retry too).
+MAX_FETCH_ATTEMPTS = 3
+RETRY_BACKOFF_SECONDS = (2, 5)
+
 
 class MacroRegimeService:
     """Fetches and caches DXY/10Y yield/VIX snapshots."""
@@ -49,6 +58,33 @@ class MacroRegimeService:
         self._cache: Optional[Dict] = None
         self._cache_time: Optional[datetime] = None
         self._cache_ttl = timedelta(minutes=30)
+
+    def _fetch_one(self, ticker: str) -> Tuple[Optional[dict], Optional[str]]:
+        """
+        Fetches a single ticker's 5d history, retrying with backoff since
+        the diagnosed failure mode (YFRateLimitError from Render's IP) is
+        transient. Returns (raw_data_dict, error_message); error_message
+        is set only if every attempt failed.
+        """
+        last_error: Optional[str] = None
+        for attempt in range(1, MAX_FETCH_ATTEMPTS + 1):
+            try:
+                data = yf.Ticker(ticker).history(period="5d")
+                if data.empty or len(data) < 2:
+                    last_error = f"empty/insufficient history ({len(data)} rows)"
+                else:
+                    return data, None
+            except Exception as e:
+                last_error = f"{type(e).__name__}: {e}"
+
+            if attempt < MAX_FETCH_ATTEMPTS:
+                logger.warning(
+                    f"Macro fetch attempt {attempt}/{MAX_FETCH_ATTEMPTS} failed for "
+                    f"{ticker}: {last_error} - retrying in {RETRY_BACKOFF_SECONDS[attempt - 1]}s"
+                )
+                time.sleep(RETRY_BACKOFF_SECONDS[attempt - 1])
+
+        return None, last_error
 
     def get_macro_context(self, force_refresh: bool = False) -> Optional[Dict]:
         """
@@ -77,36 +113,30 @@ class MacroRegimeService:
         prior_series = (self._cache or {}).get("series", {})
 
         for key, meta in MACRO_SERIES.items():
-            try:
-                data = yf.Ticker(meta["ticker"]).history(period="5d")
-                if data.empty or len(data) < 2:
-                    msg = f"empty/insufficient history ({len(data)} rows)"
-                    logger.warning(f"Macro: no/insufficient data for {meta['ticker']}: {msg}")
-                    errors[key] = msg
-                    if key in prior_series:
-                        results[key] = prior_series[key]
-                    continue
-
-                latest = float(data["Close"].iloc[-1])
-                previous = float(data["Close"].iloc[-2])
-                change = latest - previous
-                change_pct = (change / previous * 100) if previous else 0.0
-
-                results[key] = {
-                    "label": meta["label"],
-                    "ticker": meta["ticker"],
-                    "value": latest,
-                    "change": change,
-                    "changePercent": change_pct,
-                    "direction": "up" if change > 0 else "down" if change < 0 else "flat",
-                    "asOf": data.index[-1].isoformat(),
-                }
-            except Exception as e:
-                msg = f"{type(e).__name__}: {e}"
-                logger.error(f"Macro fetch failed for {meta['ticker']}: {msg}")
-                errors[key] = msg
+            data, error = self._fetch_one(meta["ticker"])
+            if data is None:
+                logger.error(
+                    f"Macro fetch exhausted {MAX_FETCH_ATTEMPTS} attempts for {meta['ticker']}: {error}"
+                )
+                errors[key] = error or "unknown error"
                 if key in prior_series:
                     results[key] = prior_series[key]
+                continue
+
+            latest = float(data["Close"].iloc[-1])
+            previous = float(data["Close"].iloc[-2])
+            change = latest - previous
+            change_pct = (change / previous * 100) if previous else 0.0
+
+            results[key] = {
+                "label": meta["label"],
+                "ticker": meta["ticker"],
+                "value": latest,
+                "change": change,
+                "changePercent": change_pct,
+                "direction": "up" if change > 0 else "down" if change < 0 else "flat",
+                "asOf": data.index[-1].isoformat(),
+            }
 
         if not results:
             logger.warning("Macro: no data available for any tracked series")
